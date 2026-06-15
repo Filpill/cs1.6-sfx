@@ -1,0 +1,17 @@
+<nav class="cat-nav">
+    {% for cat in categories %}
+    <button
+        hx-get="/soundboard/{{ game }}/{{ cat }}"
+        hx-target="#soundboard"
+        hx-swap="innerHTML"
+        class="{{ 'active' if cat == active_category }}"
+        onclick="document.querySelectorAll('.cat-nav button').forEach(b => b.classList.remove('active')); this.classList.add('active');"
+    >
+        {{ cat }}
+    </button>
+    {% endfor %}
+</nav>
+
+<div id="soundboard">
+    {% include 'partials/soundboard.html' %}
+</div>

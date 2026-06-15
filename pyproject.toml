@@ -1,0 +1,6 @@
+[project]
+name = "filip-website"
+version = "0.1.0"
+description = "Interactive soundboard website with HTMX, TypeScript, and Flask"
+requires-python = ">=3.10"
+dependencies = ["flask"]

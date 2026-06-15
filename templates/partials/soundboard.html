@@ -1,0 +1,82 @@
+{% if sentence_builder %}
+<div class="sentence-builder" data-game="{{ sentence_builder.game }}" data-voice-dir="{{ sentence_builder.voice_dir }}">
+    <div class="sb-chips" id="sb-chips"></div>
+    <div class="sb-input-wrap">
+        <input type="text" class="sb-input" id="sb-input" placeholder="Type a word..." autocomplete="off">
+        <div class="sb-dropdown" id="sb-dropdown"></div>
+    </div>
+    <div class="sb-controls">
+        <button class="sb-play-btn" id="sb-play">Play</button>
+        <button class="sb-clear-btn" id="sb-clear">Clear</button>
+    </div>
+</div>
+{% elif weapon_groups %}
+<div class="weapon-groups">
+    {% for cls in weapon_groups.classes %}
+    <div class="weapon-class">
+        <div class="weapon-class-header">
+            <span class="weapon-class-num">{{ cls.number }}.</span> {{ cls.name }}
+        </div>
+        <div class="weapon-class-body">
+            {% for w in cls.weapons %}
+            <div class="weapon-card">
+                {% if w.image %}
+                <div class="weapon-img-wrap">
+                    <img class="weapon-img" src="/static/{{ w.image }}" alt="{{ w.label }}">
+                </div>
+                {% endif %}
+                <div class="weapon-info">
+                    <div class="weapon-name">{{ w.label }}</div>
+                    <div class="weapon-btns">
+                        {% for f in w.fire %}
+                        <button class="sound-btn weapon-fire-btn" data-fire='{{ f.files | tojson }}' data-fire-rate="{{ f.rate }}">
+                            {% if w.fire | length > 1 %}{{ f.label }}{% else %}Fire{% endif %}
+                        </button>
+                        {% endfor %}
+                        {% for r in w.reload %}
+                        <button class="sound-btn" data-sounds='{{ r.files | tojson }}'>
+                            {% if w.reload | length > 1 %}{{ r.label }}{% else %}Reload{% endif %}
+                        </button>
+                        {% endfor %}
+                        {% for d in w.deploy %}
+                        <button class="sound-btn" data-sound="/static/{{ d.file }}">{{ d.label }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% elif player_groups %}
+{% for cat in player_groups.categories %}
+<div class="player-group">
+    <div class="player-group-header">{{ cat.label }}</div>
+    <div class="player-grid">
+        {% for g in cat.tiles %}
+        <button class="player-tile weapon-fire-btn" data-fire='{{ g.files | tojson }}' data-fire-rate="{{ g.rate }}" data-fire-mode="cycle" title="{{ g.name }}">
+            {% if g.image %}
+            <div class="player-texture" style="background-image: url('/static/{{ g.image }}')"></div>
+            {% else %}
+            <span class="player-tile-label">{{ g.name }}</span>
+            {% endif %}
+        </button>
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+{% else %}
+{% for sound in sounds %}
+<button class="sound-btn" data-sound="/static/{{ sound.file }}">
+    {{ sound.label }}
+</button>
+{% endfor %}
+{% if sentences %}
+{% for s in sentences %}
+<button class="sound-btn sentence-btn" data-sounds='{{ s.files | tojson }}'>
+    {{ s.label }}
+</button>
+{% endfor %}
+{% endif %}
+{% endif %}

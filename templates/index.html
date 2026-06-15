@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Soundboard</title>
+    <script src="https://unpkg.com/htmx.org@2.0.4"></script>
+    <style>
+        @font-face {
+            font-family: 'Steam';
+            src: url('https://fonts.cdnfonts.com/css/arial');
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            background: #3b3b2f;
+            color: #c3c1b8;
+            min-height: 100vh;
+        }
+
+        /* ---- window chrome ---- */
+        .window {
+            max-width: 860px;
+            margin: 20px auto;
+            border: 1px solid #1a1a14;
+            background: #4d4b40;
+            box-shadow: 2px 2px 8px rgba(0,0,0,0.5);
+        }
+
+        .titlebar {
+            background: linear-gradient(180deg, #5e6b3a 0%, #4a5530 50%, #3e4728 100%);
+            padding: 6px 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            border-bottom: 1px solid #2a2a20;
+        }
+
+        .titlebar h1 {
+            font-size: 12px;
+            font-weight: bold;
+            color: #d2d0c5;
+            letter-spacing: 0.5px;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.4);
+        }
+
+        .titlebar-buttons {
+            display: flex;
+            gap: 2px;
+        }
+
+        .titlebar-btn {
+            width: 16px;
+            height: 14px;
+            background: linear-gradient(180deg, #6e7c48 0%, #555f36 100%);
+            border: 1px solid #2a2a20;
+            border-top-color: #8a9460;
+            border-left-color: #8a9460;
+            color: #d2d0c5;
+            font-size: 9px;
+            line-height: 12px;
+            text-align: center;
+            cursor: default;
+        }
+
+        /* ---- menu bar ---- */
+        .menubar {
+            background: #46443a;
+            border-bottom: 1px solid #2a2a20;
+            padding: 2px 4px;
+            display: flex;
+            gap: 0;
+        }
+
+        .menubar span {
+            padding: 2px 8px;
+            color: #c3c1b8;
+            cursor: default;
+            font-size: 11px;
+        }
+
+        .menubar span:hover {
+            background: #5e6b3a;
+            color: #e8e6dd;
+        }
+
+        .menubar-spacer {
+            flex: 1;
+        }
+
+        .tell-time-btn {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            padding: 2px 10px;
+            border: 1px solid #2a2a20;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            color: #d2d0c5;
+            cursor: pointer;
+            margin: 1px 4px;
+        }
+
+        .tell-time-btn:hover {
+            background: linear-gradient(180deg, #7a8a4e 0%, #657540 100%);
+            color: #e8e6dd;
+        }
+
+        .tell-time-btn:active {
+            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            border-top-color: #2a2a20;
+            border-left-color: #2a2a20;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+        }
+
+        /* ---- volume slider ---- */
+        .volume-wrap {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            margin: 1px 4px;
+        }
+
+        .volume-label {
+            font-size: 11px;
+            color: #a8a690;
+        }
+
+        .volume-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 80px;
+            height: 6px;
+            background: #2a2a20;
+            border: 1px solid #1a1a14;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+            outline: none;
+            cursor: pointer;
+        }
+
+        .volume-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 10px;
+            height: 14px;
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            border: 1px solid #2a2a20;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+            cursor: pointer;
+        }
+
+        .volume-slider::-moz-range-thumb {
+            width: 10px;
+            height: 14px;
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            border: 1px solid #2a2a20;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+            border-radius: 0;
+            cursor: pointer;
+        }
+
+        /* ---- game tabs ---- */
+        .game-nav {
+            display: flex;
+            gap: 0;
+            padding: 6px 6px 0;
+            background: #46443a;
+        }
+
+        .game-nav button {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            padding: 4px 14px;
+            border: 1px solid #2a2a20;
+            border-bottom: none;
+            border-radius: 2px 2px 0 0;
+            background: linear-gradient(180deg, #53513e 0%, #46443a 100%);
+            color: #908e82;
+            cursor: pointer;
+            margin-right: 1px;
+            position: relative;
+            top: 1px;
+        }
+
+        .game-nav button:hover {
+            color: #c3c1b8;
+            background: linear-gradient(180deg, #5a5844 0%, #4d4b40 100%);
+        }
+
+        .game-nav button.active {
+            background: linear-gradient(180deg, #5e6b3a 0%, #4d5530 100%);
+            color: #d2d0c5;
+            border-bottom: 1px solid #4d5530;
+            z-index: 1;
+        }
+
+        /* ---- content area ---- */
+        .content {
+            background: #3e3d32;
+            border-top: 1px solid #5e6b3a;
+            padding: 8px;
+            min-height: 400px;
+        }
+
+        /* ---- category nav ---- */
+        .cat-nav {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            margin-bottom: 8px;
+            padding: 4px;
+            background: #35342a;
+            border: 1px solid #2a2a20;
+        }
+
+        .cat-nav button {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            padding: 3px 10px;
+            border: 1px solid #2a2a20;
+            border-top-color: #5a5848;
+            border-left-color: #5a5848;
+            background: linear-gradient(180deg, #504e42 0%, #43413a 100%);
+            color: #a8a690;
+            cursor: pointer;
+        }
+
+        .cat-nav button:hover {
+            background: linear-gradient(180deg, #5a5844 0%, #4d4b40 100%);
+            color: #d2d0c5;
+        }
+
+        .cat-nav button.active {
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            color: #d2d0c5;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+        }
+
+        /* ---- sound buttons ---- */
+        #soundboard {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 3px;
+            padding: 4px;
+            background: #35342a;
+            border: 1px solid #2a2a20;
+        }
+
+        #soundboard:has(.player-group) {
+            display: block;
+        }
+
+        .sound-btn {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            display: inline-block;
+            padding: 4px 10px;
+            border: 1px solid #2a2a20;
+            border-top-color: #5a5848;
+            border-left-color: #5a5848;
+            background: linear-gradient(180deg, #504e42 0%, #3e3d32 100%);
+            color: #c3c1b8;
+            cursor: pointer;
+            transition: none;
+        }
+
+        .sound-btn:hover {
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            color: #e8e6dd;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+        }
+
+        .sound-btn:active {
+            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            border-top-color: #2a2a20;
+            border-left-color: #2a2a20;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+        }
+
+        /* ---- weapon groups (CS 1.6 buy menu style) ---- */
+        .weapon-groups {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+            background: #1a1a14;
+            border: 1px solid #0e0e0a;
+        }
+
+        .weapon-class {
+            border-bottom: 1px solid #2a2a20;
+        }
+
+        .weapon-class:last-child {
+            border-bottom: none;
+        }
+
+        .weapon-class-header {
+            padding: 4px 8px;
+            background: linear-gradient(180deg, #2e3a1a 0%, #1e2812 100%);
+            border-bottom: 1px solid #2a2a20;
+            font-size: 11px;
+            font-weight: bold;
+            color: #c8b83c;
+            letter-spacing: 0.5px;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+        }
+
+        .weapon-class-num {
+            color: #e8d84c;
+            margin-right: 2px;
+        }
+
+        .weapon-class-body {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            background: #1a1a14;
+        }
+
+        .weapon-card {
+            display: flex;
+            align-items: stretch;
+            background: #252520;
+        }
+
+        .weapon-card:hover {
+            background: #2e2d24;
+        }
+
+        .weapon-img-wrap {
+            flex-shrink: 0;
+            width: 140px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #1e1e18;
+            border-right: 1px solid #2a2a20;
+            padding: 2px 4px;
+        }
+
+        .weapon-img {
+            max-width: 100%;
+            height: auto;
+            image-rendering: pixelated;
+        }
+
+        .weapon-info {
+            flex: 1;
+            padding: 3px 6px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            gap: 2px;
+        }
+
+        .weapon-name {
+            font-size: 11px;
+            font-weight: bold;
+            color: #c8b83c;
+            letter-spacing: 0.3px;
+        }
+
+        .weapon-btns {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+        }
+
+        /* ---- player groups ---- */
+        .player-group {
+            margin-bottom: 6px;
+        }
+
+        .player-group-header {
+            padding: 4px 8px;
+            background: linear-gradient(180deg, #2e3a1a 0%, #1e2812 100%);
+            border: 1px solid #2a2a20;
+            border-bottom: none;
+            font-size: 11px;
+            font-weight: bold;
+            color: #c8b83c;
+            letter-spacing: 0.5px;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+        }
+
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, 80px);
+            gap: 3px;
+            padding: 4px;
+            background: #1a1a14;
+            border: 1px solid #2a2a20;
+        }
+
+        .player-tile {
+            width: 80px;
+            height: 80px;
+            padding: 0;
+            border: 2px solid #2a2a20;
+            border-top-color: #5a5848;
+            border-left-color: #5a5848;
+            background: #1e1e18;
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .player-tile:hover {
+            border-color: #8a9a5e;
+            border-top-color: #a0b06e;
+            border-left-color: #a0b06e;
+        }
+
+        .player-tile:active,
+        .player-tile.firing {
+            border-color: #2a2a20;
+            border-top-color: #2a2a20;
+            border-left-color: #2a2a20;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+        }
+
+        .player-texture {
+            width: 100%;
+            height: 100%;
+            background-repeat: repeat;
+            background-size: 32px 32px;
+            image-rendering: pixelated;
+        }
+
+        .player-tile-label {
+            font-size: 11px;
+            color: #c8b83c;
+            font-weight: bold;
+        }
+
+        .weapon-fire-btn.firing {
+            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            border-top-color: #2a2a20;
+            border-left-color: #2a2a20;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+        }
+
+        /* ---- sentence builder ---- */
+        .sentence-builder {
+            padding: 6px;
+        }
+
+        .sb-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 4px;
+            min-height: 28px;
+            padding: 4px;
+            background: #35342a;
+            border: 1px solid #2a2a20;
+            margin-bottom: 6px;
+        }
+
+        .sb-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            padding: 2px 6px;
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            border: 1px solid #2a2a20;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+            color: #d2d0c5;
+            font-size: 11px;
+            cursor: default;
+        }
+
+        .sb-chip-x {
+            cursor: pointer;
+            color: #a8a690;
+            font-size: 10px;
+            line-height: 1;
+            padding: 0 1px;
+        }
+
+        .sb-chip-x:hover {
+            color: #e8e6dd;
+        }
+
+        .sb-input-wrap {
+            position: relative;
+            margin-bottom: 6px;
+        }
+
+        .sb-input {
+            width: 100%;
+            padding: 4px 6px;
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            background: #2a2a20;
+            border: 1px solid #1a1a14;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+            color: #d2d0c5;
+            outline: none;
+        }
+
+        .sb-input::placeholder {
+            color: #706e62;
+        }
+
+        .sb-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            max-height: 160px;
+            overflow-y: auto;
+            background: #2a2a20;
+            border: 1px solid #1a1a14;
+            border-top: none;
+            z-index: 10;
+        }
+
+        .sb-dropdown.open {
+            display: block;
+        }
+
+        .sb-option {
+            padding: 3px 6px;
+            font-size: 11px;
+            color: #c3c1b8;
+            cursor: pointer;
+        }
+
+        .sb-option:hover,
+        .sb-option.active {
+            background: #5e6b3a;
+            color: #e8e6dd;
+        }
+
+        .sb-controls {
+            display: flex;
+            gap: 4px;
+        }
+
+        .sb-play-btn,
+        .sb-clear-btn {
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            padding: 3px 14px;
+            border: 1px solid #2a2a20;
+            border-top-color: #8a9a5e;
+            border-left-color: #8a9a5e;
+            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            color: #d2d0c5;
+            cursor: pointer;
+        }
+
+        .sb-play-btn:hover,
+        .sb-clear-btn:hover {
+            background: linear-gradient(180deg, #7a8a4e 0%, #657540 100%);
+            color: #e8e6dd;
+        }
+
+        .sb-play-btn:active,
+        .sb-clear-btn:active {
+            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            border-top-color: #2a2a20;
+            border-left-color: #2a2a20;
+            border-bottom-color: #5a5848;
+            border-right-color: #5a5848;
+        }
+
+        /* ---- status bar ---- */
+        .statusbar {
+            background: #46443a;
+            border-top: 1px solid #2a2a20;
+            padding: 3px 8px;
+            font-size: 11px;
+            color: #908e82;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .statusbar .sep {
+            border-left: 1px solid #2a2a20;
+            border-right: 1px solid #5a5848;
+            margin: 0 6px;
+        }
+    </style>
+</head>
+<body>
+    <div class="window">
+        <div class="titlebar">
+            <h1>SOUNDBOARD</h1>
+            <div class="titlebar-buttons">
+                <div class="titlebar-btn">_</div>
+                <div class="titlebar-btn">x</div>
+            </div>
+        </div>
+
+        <div class="menubar">
+            <span>File</span>
+            <span>View</span>
+            <span>Help</span>
+            <span class="menubar-spacer"></span>
+            <span class="volume-wrap">
+                <span class="volume-label">Vol</span>
+                <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
+            </span>
+            <button class="tell-time-btn" data-tell-time="{{ active_game }}">Current Time</button>
+        </div>
+
+        <div class="game-nav">
+            {% for game in games %}
+            <button
+                hx-get="/categories/{{ game }}"
+                hx-target="#game-content"
+                hx-swap="innerHTML"
+                class="{{ 'active' if game == active_game }}"
+                onclick="document.querySelectorAll('.game-nav button').forEach(b => b.classList.remove('active')); this.classList.add('active');"
+            >
+                {{ game }}
+            </button>
+            {% endfor %}
+        </div>
+
+        <div class="content">
+            <div id="game-content">
+                {% include 'partials/categories.html' %}
+            </div>
+        </div>
+
+        <div class="statusbar">
+            <span>Ready</span>
+            <span><span class="sep"></span>Sounds loaded</span>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='dist/main.js') }}"></script>
+</body>
+</html>
