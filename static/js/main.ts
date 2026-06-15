@@ -11,6 +11,7 @@ if (volumeSlider) {
 }
 
 const bufferCache = new Map<string, AudioBuffer>();
+const activeSources: AudioBufferSourceNode[] = [];
 
 async function fetchBuffer(url: string): Promise<AudioBuffer> {
   const cached = bufferCache.get(url);
@@ -33,8 +34,15 @@ async function playSounds(files: string[]): Promise<void> {
     src.buffer = buf;
     src.connect(gainNode);
     src.start(when);
+    activeSources.push(src);
+    src.onended = () => {
+      const idx = activeSources.indexOf(src);
+      if (idx !== -1) activeSources.splice(idx, 1);
+      updateStopBtn();
+    };
     when += buf.duration;
   }
+  updateStopBtn();
 }
 
 const NUMBER_WORDS: Record<number, string[]> = {
@@ -107,8 +115,6 @@ function buildTimeFiles(game: string): string[] {
   const s = now.getSeconds();
 
   const words: string[] = [
-    "attention",
-    "_comma",
     "the",
     "time",
     "is",
@@ -125,160 +131,6 @@ function buildTimeFiles(game: string): string[] {
   return words.map((w) => `/static/${game}/sound/vox/${w}.wav`);
 }
 
-// ---- Sentence Builder ----
-
-const wordListCache = new Map<string, string[]>();
-
-async function fetchWordList(game: string, voiceDir: string): Promise<string[]> {
-  const key = `${game}/${voiceDir}`;
-  const cached = wordListCache.get(key);
-  if (cached) return cached;
-  const res = await fetch(`/words/${game}/${voiceDir}`);
-  const words: string[] = await res.json();
-  wordListCache.set(key, words);
-  return words;
-}
-
-function initSentenceBuilder(root: HTMLElement): void {
-  const game = root.dataset.game!;
-  const voiceDir = root.dataset.voiceDir!;
-  const chipsEl = root.querySelector<HTMLElement>("#sb-chips")!;
-  const inputEl = root.querySelector<HTMLInputElement>("#sb-input")!;
-  const dropdownEl = root.querySelector<HTMLElement>("#sb-dropdown")!;
-  const playBtn = root.querySelector<HTMLElement>("#sb-play")!;
-  const clearBtn = root.querySelector<HTMLElement>("#sb-clear")!;
-
-  const selectedWords: string[] = [];
-  let wordList: string[] = [];
-  let activeIndex = -1;
-
-  fetchWordList(game, voiceDir).then((words) => {
-    wordList = words;
-  });
-
-  function renderChips(): void {
-    chipsEl.innerHTML = "";
-    selectedWords.forEach((word, i) => {
-      const chip = document.createElement("span");
-      chip.className = "sb-chip";
-      chip.textContent = word;
-      const x = document.createElement("span");
-      x.className = "sb-chip-x";
-      x.textContent = "x";
-      x.addEventListener("click", () => {
-        selectedWords.splice(i, 1);
-        renderChips();
-      });
-      chip.appendChild(x);
-      chipsEl.appendChild(chip);
-    });
-  }
-
-  function showDropdown(matches: string[]): void {
-    dropdownEl.innerHTML = "";
-    activeIndex = -1;
-    if (matches.length === 0) {
-      dropdownEl.classList.remove("open");
-      return;
-    }
-    matches.forEach((word, i) => {
-      const opt = document.createElement("div");
-      opt.className = "sb-option";
-      opt.textContent = word;
-      opt.addEventListener("mousedown", (e) => {
-        e.preventDefault();
-        selectWord(word);
-      });
-      dropdownEl.appendChild(opt);
-    });
-    dropdownEl.classList.add("open");
-  }
-
-  function selectWord(word: string): void {
-    selectedWords.push(word);
-    renderChips();
-    inputEl.value = "";
-    dropdownEl.classList.remove("open");
-    inputEl.focus();
-  }
-
-  function updateActive(): void {
-    const opts = dropdownEl.querySelectorAll<HTMLElement>(".sb-option");
-    opts.forEach((opt, i) => {
-      opt.classList.toggle("active", i === activeIndex);
-    });
-    if (activeIndex >= 0 && opts[activeIndex]) {
-      opts[activeIndex].scrollIntoView({ block: "nearest" });
-    }
-  }
-
-  inputEl.addEventListener("input", () => {
-    const q = inputEl.value.toLowerCase().trim();
-    if (!q) {
-      dropdownEl.classList.remove("open");
-      return;
-    }
-    const matches = wordList.filter((w) => w.toLowerCase().includes(q)).slice(0, 50);
-    showDropdown(matches);
-  });
-
-  inputEl.addEventListener("keydown", (e) => {
-    const opts = dropdownEl.querySelectorAll<HTMLElement>(".sb-option");
-    if (e.key === "ArrowDown") {
-      e.preventDefault();
-      if (opts.length > 0) {
-        activeIndex = Math.min(activeIndex + 1, opts.length - 1);
-        updateActive();
-      }
-    } else if (e.key === "ArrowUp") {
-      e.preventDefault();
-      if (opts.length > 0) {
-        activeIndex = Math.max(activeIndex - 1, 0);
-        updateActive();
-      }
-    } else if (e.key === "Enter") {
-      e.preventDefault();
-      if (activeIndex >= 0 && opts[activeIndex]) {
-        selectWord(opts[activeIndex].textContent!);
-      } else if (opts.length > 0) {
-        selectWord(opts[0].textContent!);
-      }
-    } else if (e.key === "Escape") {
-      dropdownEl.classList.remove("open");
-    }
-  });
-
-  inputEl.addEventListener("blur", () => {
-    dropdownEl.classList.remove("open");
-  });
-
-  playBtn.addEventListener("click", () => {
-    if (selectedWords.length === 0) return;
-    const files = selectedWords.map(
-      (w) => `/static/${game}/sound/${voiceDir}/${w}.wav`
-    );
-    playSounds(files);
-  });
-
-  clearBtn.addEventListener("click", () => {
-    selectedWords.length = 0;
-    renderChips();
-    inputEl.value = "";
-    dropdownEl.classList.remove("open");
-  });
-}
-
-function setupSentenceBuilders(): void {
-  document.querySelectorAll<HTMLElement>(".sentence-builder").forEach((el) => {
-    if (!el.dataset.sbInit) {
-      el.dataset.sbInit = "1";
-      initSentenceBuilder(el);
-    }
-  });
-}
-
-// Init on page load
-setupSentenceBuilders();
 
 // ---- Weapon fire: hold-to-fire ----
 
@@ -286,15 +138,19 @@ setupSentenceBuilders();
 let fireActive = false;
 let fireInterval: number | null = null;
 let fireCycleIndex = 0;
+const SHELL_DELAY = 0.3; // seconds delay for casing drop
+const SHELL_VOLUME = 0.3; // shell casing volume relative to master
 
 function startFiring(
   files: string[],
   rate: number,
-  btn: HTMLElement
+  btn: HTMLElement,
+  playShell: boolean = true
 ): void {
   stopFiring();
   fireActive = true;
   btn.classList.add("firing");
+  updateStopBtn();
 
   const mode = btn.dataset.fireMode || "random";
   let chosen: string;
@@ -305,6 +161,10 @@ function startFiring(
     chosen = files[Math.floor(Math.random() * files.length)];
   }
 
+  // Derive shell casing path from the first fire file's game directory
+  const gameDir = files[0].split("/")[0];
+  const shellUrl = playShell ? `/static/${gameDir}/sound/weapons/pl_shell1.wav` : "";
+
   async function fireOnce(): Promise<void> {
     if (!fireActive) return;
     const url =
@@ -312,12 +172,41 @@ function startFiring(
         ? `/static/${files[fireCycleIndex++ % files.length]}`
         : `/static/${chosen}`;
     if (ctx.state === "suspended") await ctx.resume();
-    const buf = await fetchBuffer(url);
+
+    const fetches: Promise<AudioBuffer>[] = [fetchBuffer(url)];
+    if (playShell) fetches.push(fetchBuffer(shellUrl));
+    const results = await Promise.all(fetches);
     if (!fireActive) return;
+
+    const buf = results[0];
     const src = ctx.createBufferSource();
     src.buffer = buf;
     src.connect(gainNode);
     src.start();
+    activeSources.push(src);
+    src.onended = () => {
+      const idx = activeSources.indexOf(src);
+      if (idx !== -1) activeSources.splice(idx, 1);
+      updateStopBtn();
+    };
+
+    // Shell casing with slight delay at reduced volume
+    if (playShell) {
+      const shellBuf = results[1];
+      const shellGain = ctx.createGain();
+      shellGain.gain.value = SHELL_VOLUME;
+      shellGain.connect(gainNode);
+      const shell = ctx.createBufferSource();
+      shell.buffer = shellBuf;
+      shell.connect(shellGain);
+      shell.start(ctx.currentTime + SHELL_DELAY);
+      activeSources.push(shell);
+      shell.onended = () => {
+        const idx = activeSources.indexOf(shell);
+        if (idx !== -1) activeSources.splice(idx, 1);
+        updateStopBtn();
+      };
+    }
   }
 
   fireOnce();
@@ -333,6 +222,7 @@ function stopFiring(): void {
   document
     .querySelectorAll<HTMLElement>(".weapon-fire-btn.firing")
     .forEach((b) => b.classList.remove("firing"));
+  updateStopBtn();
 }
 
 // Fire button: mousedown starts, mouseup/mouseleave stops
@@ -342,7 +232,8 @@ document.addEventListener("mousedown", (e) => {
   e.preventDefault();
   const files: string[] = JSON.parse(btn.dataset.fire!);
   const rate = parseInt(btn.dataset.fireRate || "100", 10);
-  startFiring(files, rate, btn);
+  const shell = !btn.classList.contains("player-tile");
+  startFiring(files, rate, btn, shell);
 });
 
 document.addEventListener("mouseup", () => {
@@ -351,11 +242,6 @@ document.addEventListener("mouseup", () => {
 
 document.addEventListener("mouseleave", () => {
   if (fireActive) stopFiring();
-});
-
-// Re-init after HTMX swaps
-document.addEventListener("htmx:afterSwap", () => {
-  setupSentenceBuilders();
 });
 
 // ---- Sound button click handlers ----
@@ -387,3 +273,23 @@ document.addEventListener("click", (e) => {
 
   playSounds([src]);
 });
+
+// ---- Stop / Play-Pause ----
+
+const stopAllBtn = document.getElementById("stop-all-btn");
+
+function updateStopBtn(): void {
+  if (!stopAllBtn) return;
+  stopAllBtn.textContent = activeSources.length > 0 || fireActive ? "\u23F8" : "\u25B6";
+}
+
+function stopAll(): void {
+  stopFiring();
+  for (const src of activeSources) {
+    src.stop();
+  }
+  activeSources.length = 0;
+  updateStopBtn();
+}
+
+stopAllBtn?.addEventListener("click", stopAll);

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Soundboard</title>
+    <title>The Sounds of Counter Strike 1.6</title>
     <script src="https://unpkg.com/htmx.org@2.0.4"></script>
     <style>
         @font-face {
@@ -35,7 +35,7 @@
         }
 
         .titlebar {
-            background: linear-gradient(180deg, #5e6b3a 0%, #4a5530 50%, #3e4728 100%);
+            background: #4a5530;
             padding: 6px 10px;
             display: flex;
             align-items: center;
@@ -59,7 +59,7 @@
         .titlebar-btn {
             width: 16px;
             height: 14px;
-            background: linear-gradient(180deg, #6e7c48 0%, #555f36 100%);
+            background: #6e7c48;
             border: 1px solid #2a2a20;
             border-top-color: #8a9460;
             border-left-color: #8a9460;
@@ -76,23 +76,90 @@
             border-bottom: 1px solid #2a2a20;
             padding: 2px 4px;
             display: flex;
+            align-items: center;
             gap: 0;
         }
 
-        .menubar span {
+        .menubar > .menu-item > span {
             padding: 2px 8px;
             color: #c3c1b8;
-            cursor: default;
+            cursor: pointer;
             font-size: 11px;
         }
 
-        .menubar span:hover {
+        .menubar > .menu-item > span:hover {
             background: #5e6b3a;
             color: #e8e6dd;
         }
 
         .menubar-spacer {
             flex: 1;
+        }
+
+        .menu-item {
+            position: relative;
+        }
+
+        .menu-item > span {
+            padding: 2px 8px;
+            color: #c3c1b8;
+            cursor: pointer;
+            font-size: 11px;
+        }
+
+        .menu-item > span:hover {
+            background: #5e6b3a;
+            color: #e8e6dd;
+        }
+
+        .menu-dropdown {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            background: #46443a;
+            border: 1px solid #2a2a20;
+            min-width: 160px;
+            z-index: 100;
+            padding: 2px 0;
+        }
+
+        .menu-item.open > .menu-dropdown {
+            display: block;
+        }
+
+        .menu-dropdown button,
+        .menu-dropdown .menu-label {
+            display: block;
+            width: 100%;
+            text-align: left;
+            font-family: Tahoma, Arial, Helvetica, sans-serif;
+            font-size: 11px;
+            padding: 3px 12px;
+            border: none;
+            background: none;
+            color: #c3c1b8;
+            cursor: pointer;
+        }
+
+        .menu-dropdown button:hover {
+            background: #5e6b3a;
+            color: #e8e6dd;
+        }
+
+        .menu-dropdown button.active {
+            background: #6a7a3e;
+            color: #d2d0c5;
+        }
+
+        .menu-dropdown .menu-label {
+            cursor: pointer;
+            color: #a8a690;
+        }
+
+        .menu-dropdown .menu-label:hover {
+            background: #5e6b3a;
+            color: #e8e6dd;
         }
 
         .tell-time-btn {
@@ -102,19 +169,28 @@
             border: 1px solid #2a2a20;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             color: #d2d0c5;
             cursor: pointer;
             margin: 1px 4px;
         }
 
+        #stop-all-btn,
+        #tell-time-btn {
+            width: 28px;
+            text-align: center;
+            padding-left: 0;
+            padding-right: 0;
+            font-size: 16px;
+        }
+
         .tell-time-btn:hover {
-            background: linear-gradient(180deg, #7a8a4e 0%, #657540 100%);
+            background: #7a8a4e;
             color: #e8e6dd;
         }
 
         .tell-time-btn:active {
-            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            background: #3e4728;
             border-top-color: #2a2a20;
             border-left-color: #2a2a20;
             border-bottom-color: #5a5848;
@@ -126,7 +202,7 @@
             display: flex;
             align-items: center;
             gap: 4px;
-            margin: 1px 4px;
+            margin: 1px 4px 1px 0;
         }
 
         .volume-label {
@@ -152,7 +228,7 @@
             appearance: none;
             width: 10px;
             height: 14px;
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             border: 1px solid #2a2a20;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
@@ -162,7 +238,7 @@
         .volume-slider::-moz-range-thumb {
             width: 10px;
             height: 14px;
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             border: 1px solid #2a2a20;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
@@ -185,7 +261,7 @@
             border: 1px solid #2a2a20;
             border-bottom: none;
             border-radius: 2px 2px 0 0;
-            background: linear-gradient(180deg, #53513e 0%, #46443a 100%);
+            background: #53513e;
             color: #908e82;
             cursor: pointer;
             margin-right: 1px;
@@ -195,11 +271,11 @@
 
         .game-nav button:hover {
             color: #c3c1b8;
-            background: linear-gradient(180deg, #5a5844 0%, #4d4b40 100%);
+            background: #5a5844;
         }
 
         .game-nav button.active {
-            background: linear-gradient(180deg, #5e6b3a 0%, #4d5530 100%);
+            background: #5e6b3a;
             color: #d2d0c5;
             border-bottom: 1px solid #4d5530;
             z-index: 1;
@@ -231,18 +307,18 @@
             border: 1px solid #2a2a20;
             border-top-color: #5a5848;
             border-left-color: #5a5848;
-            background: linear-gradient(180deg, #504e42 0%, #43413a 100%);
+            background: #504e42;
             color: #a8a690;
             cursor: pointer;
         }
 
         .cat-nav button:hover {
-            background: linear-gradient(180deg, #5a5844 0%, #4d4b40 100%);
+            background: #5a5844;
             color: #d2d0c5;
         }
 
         .cat-nav button.active {
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             color: #d2d0c5;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
@@ -270,21 +346,21 @@
             border: 1px solid #2a2a20;
             border-top-color: #5a5848;
             border-left-color: #5a5848;
-            background: linear-gradient(180deg, #504e42 0%, #3e3d32 100%);
+            background: #504e42;
             color: #c3c1b8;
             cursor: pointer;
             transition: none;
         }
 
         .sound-btn:hover {
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             color: #e8e6dd;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
         }
 
         .sound-btn:active {
-            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            background: #3e4728;
             border-top-color: #2a2a20;
             border-left-color: #2a2a20;
             border-bottom-color: #5a5848;
@@ -310,7 +386,7 @@
 
         .weapon-class-header {
             padding: 4px 8px;
-            background: linear-gradient(180deg, #2e3a1a 0%, #1e2812 100%);
+            background: #2e3a1a;
             border-bottom: 1px solid #2a2a20;
             font-size: 11px;
             font-weight: bold;
@@ -387,7 +463,7 @@
 
         .player-group-header {
             padding: 4px 8px;
-            background: linear-gradient(180deg, #2e3a1a 0%, #1e2812 100%);
+            background: #2e3a1a;
             border: 1px solid #2a2a20;
             border-bottom: none;
             font-size: 11px;
@@ -449,7 +525,7 @@
         }
 
         .weapon-fire-btn.firing {
-            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            background: #3e4728;
             border-top-color: #2a2a20;
             border-left-color: #2a2a20;
             border-bottom-color: #5a5848;
@@ -477,7 +553,7 @@
             align-items: center;
             gap: 4px;
             padding: 2px 6px;
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             border: 1px solid #2a2a20;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
@@ -564,20 +640,20 @@
             border: 1px solid #2a2a20;
             border-top-color: #8a9a5e;
             border-left-color: #8a9a5e;
-            background: linear-gradient(180deg, #6a7a3e 0%, #556530 100%);
+            background: #6a7a3e;
             color: #d2d0c5;
             cursor: pointer;
         }
 
         .sb-play-btn:hover,
         .sb-clear-btn:hover {
-            background: linear-gradient(180deg, #7a8a4e 0%, #657540 100%);
+            background: #7a8a4e;
             color: #e8e6dd;
         }
 
         .sb-play-btn:active,
         .sb-clear-btn:active {
-            background: linear-gradient(180deg, #3e4728 0%, #4a5530 100%);
+            background: #3e4728;
             border-top-color: #2a2a20;
             border-left-color: #2a2a20;
             border-bottom-color: #5a5848;
@@ -605,7 +681,7 @@
 <body>
     <div class="window">
         <div class="titlebar">
-            <h1>SOUNDBOARD</h1>
+            <h1>The Sounds of Counter Strike 1.6</h1>
             <div class="titlebar-buttons">
                 <div class="titlebar-btn">_</div>
                 <div class="titlebar-btn">x</div>
@@ -613,30 +689,35 @@
         </div>
 
         <div class="menubar">
-            <span>File</span>
-            <span>View</span>
-            <span>Help</span>
+            <div class="menu-item">
+                <span>File</span>
+                <div class="menu-dropdown" id="file-menu">
+                    {% for cat in categories %}
+                    <button
+                        hx-get="/soundboard/{{ active_game }}/{{ cat }}"
+                        hx-target="#soundboard"
+                        hx-swap="innerHTML"
+                        class="{{ 'active' if cat == active_category }}"
+                        onclick="document.querySelectorAll('#file-menu button').forEach(b => b.classList.remove('active')); this.classList.add('active');"
+                    >{{ cat }}</button>
+                    {% endfor %}
+                </div>
+            </div>
+            <div class="menu-item">
+                <span>Credits</span>
+                <div class="menu-dropdown">
+                    <a class="menu-label" href="https://github.com/Filpill" target="_blank" style="text-decoration: none;">Created By Filip Livancic</a>
+                </div>
+            </div>
             <span class="menubar-spacer"></span>
+            <button class="tell-time-btn" id="tell-time-btn" data-tell-time="{{ active_game }}">&#9201;</button>
+            <button class="tell-time-btn" id="stop-all-btn">&#9654;</button>
             <span class="volume-wrap">
                 <span class="volume-label">Vol</span>
                 <input type="range" class="volume-slider" id="volume-slider" min="0" max="100" value="100">
             </span>
-            <button class="tell-time-btn" data-tell-time="{{ active_game }}">Current Time</button>
         </div>
 
-        <div class="game-nav">
-            {% for game in games %}
-            <button
-                hx-get="/categories/{{ game }}"
-                hx-target="#game-content"
-                hx-swap="innerHTML"
-                class="{{ 'active' if game == active_game }}"
-                onclick="document.querySelectorAll('.game-nav button').forEach(b => b.classList.remove('active')); this.classList.add('active');"
-            >
-                {{ game }}
-            </button>
-            {% endfor %}
-        </div>
 
         <div class="content">
             <div id="game-content">
@@ -651,5 +732,23 @@
     </div>
 
     <script src="{{ url_for('static', filename='dist/main.js') }}"></script>
+    <script>
+    document.querySelectorAll('.menu-item > span').forEach(function(span) {
+        span.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var item = span.parentElement;
+            var wasOpen = item.classList.contains('open');
+            document.querySelectorAll('.menu-item.open').forEach(function(el) {
+                el.classList.remove('open');
+            });
+            if (!wasOpen) item.classList.add('open');
+        });
+    });
+    document.addEventListener('click', function() {
+        document.querySelectorAll('.menu-item.open').forEach(function(el) {
+            el.classList.remove('open');
+        });
+    });
+    </script>
 </body>
 </html>

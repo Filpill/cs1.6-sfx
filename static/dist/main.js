@@ -12,6 +12,7 @@
     });
   }
   var bufferCache = /* @__PURE__ */ new Map();
+  var activeSources = [];
   async function fetchBuffer(url) {
     const cached = bufferCache.get(url);
     if (cached) return cached;
@@ -30,8 +31,15 @@
       src.buffer = buf;
       src.connect(gainNode);
       src.start(when);
+      activeSources.push(src);
+      src.onended = () => {
+        const idx = activeSources.indexOf(src);
+        if (idx !== -1) activeSources.splice(idx, 1);
+        updateStopBtn();
+      };
       when += buf.duration;
     }
+    updateStopBtn();
   }
   var NUMBER_WORDS = {
     0: ["zero"],
@@ -101,8 +109,6 @@
     const m = now.getMinutes();
     const s = now.getSeconds();
     const words = [
-      "attention",
-      "_comma",
       "the",
       "time",
       "is",
@@ -117,149 +123,16 @@
     ];
     return words.map((w) => `/static/${game}/sound/vox/${w}.wav`);
   }
-  var wordListCache = /* @__PURE__ */ new Map();
-  async function fetchWordList(game, voiceDir) {
-    const key = `${game}/${voiceDir}`;
-    const cached = wordListCache.get(key);
-    if (cached) return cached;
-    const res = await fetch(`/words/${game}/${voiceDir}`);
-    const words = await res.json();
-    wordListCache.set(key, words);
-    return words;
-  }
-  function initSentenceBuilder(root) {
-    const game = root.dataset.game;
-    const voiceDir = root.dataset.voiceDir;
-    const chipsEl = root.querySelector("#sb-chips");
-    const inputEl = root.querySelector("#sb-input");
-    const dropdownEl = root.querySelector("#sb-dropdown");
-    const playBtn = root.querySelector("#sb-play");
-    const clearBtn = root.querySelector("#sb-clear");
-    const selectedWords = [];
-    let wordList = [];
-    let activeIndex = -1;
-    fetchWordList(game, voiceDir).then((words) => {
-      wordList = words;
-    });
-    function renderChips() {
-      chipsEl.innerHTML = "";
-      selectedWords.forEach((word, i) => {
-        const chip = document.createElement("span");
-        chip.className = "sb-chip";
-        chip.textContent = word;
-        const x = document.createElement("span");
-        x.className = "sb-chip-x";
-        x.textContent = "x";
-        x.addEventListener("click", () => {
-          selectedWords.splice(i, 1);
-          renderChips();
-        });
-        chip.appendChild(x);
-        chipsEl.appendChild(chip);
-      });
-    }
-    function showDropdown(matches) {
-      dropdownEl.innerHTML = "";
-      activeIndex = -1;
-      if (matches.length === 0) {
-        dropdownEl.classList.remove("open");
-        return;
-      }
-      matches.forEach((word, i) => {
-        const opt = document.createElement("div");
-        opt.className = "sb-option";
-        opt.textContent = word;
-        opt.addEventListener("mousedown", (e) => {
-          e.preventDefault();
-          selectWord(word);
-        });
-        dropdownEl.appendChild(opt);
-      });
-      dropdownEl.classList.add("open");
-    }
-    function selectWord(word) {
-      selectedWords.push(word);
-      renderChips();
-      inputEl.value = "";
-      dropdownEl.classList.remove("open");
-      inputEl.focus();
-    }
-    function updateActive() {
-      const opts = dropdownEl.querySelectorAll(".sb-option");
-      opts.forEach((opt, i) => {
-        opt.classList.toggle("active", i === activeIndex);
-      });
-      if (activeIndex >= 0 && opts[activeIndex]) {
-        opts[activeIndex].scrollIntoView({ block: "nearest" });
-      }
-    }
-    inputEl.addEventListener("input", () => {
-      const q = inputEl.value.toLowerCase().trim();
-      if (!q) {
-        dropdownEl.classList.remove("open");
-        return;
-      }
-      const matches = wordList.filter((w) => w.toLowerCase().includes(q)).slice(0, 50);
-      showDropdown(matches);
-    });
-    inputEl.addEventListener("keydown", (e) => {
-      const opts = dropdownEl.querySelectorAll(".sb-option");
-      if (e.key === "ArrowDown") {
-        e.preventDefault();
-        if (opts.length > 0) {
-          activeIndex = Math.min(activeIndex + 1, opts.length - 1);
-          updateActive();
-        }
-      } else if (e.key === "ArrowUp") {
-        e.preventDefault();
-        if (opts.length > 0) {
-          activeIndex = Math.max(activeIndex - 1, 0);
-          updateActive();
-        }
-      } else if (e.key === "Enter") {
-        e.preventDefault();
-        if (activeIndex >= 0 && opts[activeIndex]) {
-          selectWord(opts[activeIndex].textContent);
-        } else if (opts.length > 0) {
-          selectWord(opts[0].textContent);
-        }
-      } else if (e.key === "Escape") {
-        dropdownEl.classList.remove("open");
-      }
-    });
-    inputEl.addEventListener("blur", () => {
-      dropdownEl.classList.remove("open");
-    });
-    playBtn.addEventListener("click", () => {
-      if (selectedWords.length === 0) return;
-      const files = selectedWords.map(
-        (w) => `/static/${game}/sound/${voiceDir}/${w}.wav`
-      );
-      playSounds(files);
-    });
-    clearBtn.addEventListener("click", () => {
-      selectedWords.length = 0;
-      renderChips();
-      inputEl.value = "";
-      dropdownEl.classList.remove("open");
-    });
-  }
-  function setupSentenceBuilders() {
-    document.querySelectorAll(".sentence-builder").forEach((el) => {
-      if (!el.dataset.sbInit) {
-        el.dataset.sbInit = "1";
-        initSentenceBuilder(el);
-      }
-    });
-  }
-  setupSentenceBuilders();
   var fireActive = false;
   var fireInterval = null;
   var fireCycleIndex = 0;
-  function startFiring(files, rate, btn) {
+  var SHELL_DELAY = 0.3;
+  var SHELL_VOLUME = 0.3;
+  function startFiring(files, rate, btn, playShell = true) {
     stopFiring();
     fireActive = true;
     btn.classList.add("firing");
+    updateStopBtn();
     const mode = btn.dataset.fireMode || "random";
     let chosen;
     if (mode === "cycle") {
@@ -267,16 +140,43 @@
     } else {
       chosen = files[Math.floor(Math.random() * files.length)];
     }
+    const gameDir = files[0].split("/")[0];
+    const shellUrl = playShell ? `/static/${gameDir}/sound/weapons/pl_shell1.wav` : "";
     async function fireOnce() {
       if (!fireActive) return;
       const url = mode === "cycle" ? `/static/${files[fireCycleIndex++ % files.length]}` : `/static/${chosen}`;
       if (ctx.state === "suspended") await ctx.resume();
-      const buf = await fetchBuffer(url);
+      const fetches = [fetchBuffer(url)];
+      if (playShell) fetches.push(fetchBuffer(shellUrl));
+      const results = await Promise.all(fetches);
       if (!fireActive) return;
+      const buf = results[0];
       const src = ctx.createBufferSource();
       src.buffer = buf;
       src.connect(gainNode);
       src.start();
+      activeSources.push(src);
+      src.onended = () => {
+        const idx = activeSources.indexOf(src);
+        if (idx !== -1) activeSources.splice(idx, 1);
+        updateStopBtn();
+      };
+      if (playShell) {
+        const shellBuf = results[1];
+        const shellGain = ctx.createGain();
+        shellGain.gain.value = SHELL_VOLUME;
+        shellGain.connect(gainNode);
+        const shell = ctx.createBufferSource();
+        shell.buffer = shellBuf;
+        shell.connect(shellGain);
+        shell.start(ctx.currentTime + SHELL_DELAY);
+        activeSources.push(shell);
+        shell.onended = () => {
+          const idx = activeSources.indexOf(shell);
+          if (idx !== -1) activeSources.splice(idx, 1);
+          updateStopBtn();
+        };
+      }
     }
     fireOnce();
     fireInterval = window.setInterval(fireOnce, rate);
@@ -288,6 +188,7 @@
       fireInterval = null;
     }
     document.querySelectorAll(".weapon-fire-btn.firing").forEach((b) => b.classList.remove("firing"));
+    updateStopBtn();
   }
   document.addEventListener("mousedown", (e) => {
     const btn = e.target.closest("[data-fire]");
@@ -295,16 +196,14 @@
     e.preventDefault();
     const files = JSON.parse(btn.dataset.fire);
     const rate = parseInt(btn.dataset.fireRate || "100", 10);
-    startFiring(files, rate, btn);
+    const shell = !btn.classList.contains("player-tile");
+    startFiring(files, rate, btn, shell);
   });
   document.addEventListener("mouseup", () => {
     if (fireActive) stopFiring();
   });
   document.addEventListener("mouseleave", () => {
     if (fireActive) stopFiring();
-  });
-  document.addEventListener("htmx:afterSwap", () => {
-    setupSentenceBuilders();
   });
   document.addEventListener("click", (e) => {
     const btn = e.target.closest(
@@ -326,5 +225,19 @@
     if (!src) return;
     playSounds([src]);
   });
+  var stopAllBtn = document.getElementById("stop-all-btn");
+  function updateStopBtn() {
+    if (!stopAllBtn) return;
+    stopAllBtn.textContent = activeSources.length > 0 || fireActive ? "\u23F8" : "\u25B6";
+  }
+  function stopAll() {
+    stopFiring();
+    for (const src of activeSources) {
+      src.stop();
+    }
+    activeSources.length = 0;
+    updateStopBtn();
+  }
+  stopAllBtn?.addEventListener("click", stopAll);
 })();
 //# sourceMappingURL=main.js.map

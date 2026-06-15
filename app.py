@@ -1,12 +1,10 @@
 import re
 from pathlib import Path
 
-from flask import Flask, jsonify, render_template
+from flask import Flask, render_template
 
 app = Flask(__name__)
 
-SENTENCE_DIRS = ("fvox",)
-VOICE_DIRS = ("vox", "fvox")
 
 # ---- Weapon sound classification ----
 
@@ -412,18 +410,11 @@ def get_categories(game: str) -> list[str]:
     sound_dir = Path(app.static_folder) / game / "sound"
     if not sound_dir.is_dir():
         return []
-    _HIDDEN_CATS = {"events", "de_torn", "items"}
+    _HIDDEN_CATS = {"events", "de_torn", "items", "hostage", "plats", "storm", "misc", "vox", "fvox"}
     cats = sorted(
         d.name for d in sound_dir.iterdir()
         if d.is_dir() and d.name not in _HIDDEN_CATS
     )
-    # Add sentence categories at the end
-    sentences = parse_sentences(game)
-    for prefix in SENTENCE_DIRS:
-        if any(s["prefix"] == prefix for s in sentences):
-            key = f"sentences:{prefix}"
-            if key not in cats:
-                cats.append(key)
     return cats
 
 
@@ -444,81 +435,6 @@ def get_sounds(game: str, category: str) -> list[dict]:
     return sounds
 
 
-def parse_sentences(game: str) -> list[dict]:
-    """Parse sentences.txt and return sentence entries for vox/fvox."""
-    sentences_file = Path(app.static_folder) / game / "sound" / "sentences.txt"
-    if not sentences_file.is_file():
-        return []
-
-    results = []
-    modifier_re = re.compile(r"\([^)]*\)")
-
-    for line in sentences_file.read_text(errors="replace").splitlines():
-        line = line.strip()
-        if not line or line.startswith("//"):
-            continue
-
-        parts = line.split(None, 1)
-        if len(parts) < 2:
-            continue
-
-        name = parts[0]
-        body = parts[1]
-
-        # Strip all modifier tokens like (p120), (e80), (t30), (v50), (s0)
-        body = modifier_re.sub("", body)
-
-        # Determine the directory prefix from the first token
-        tokens = body.split()
-        if not tokens:
-            continue
-
-        # Check if first token has a directory prefix (e.g., "fvox/bell")
-        if "/" in tokens[0]:
-            prefix, first_word = tokens[0].split("/", 1)
-        else:
-            continue  # No directory prefix, skip
-
-        if prefix not in SENTENCE_DIRS:
-            continue
-
-        # Build file list: first word already extracted, rest are plain words
-        sound_dir = Path(app.static_folder) / game / "sound" / prefix
-        files = []
-
-        # Process first word
-        if first_word and not first_word.startswith("."):
-            wav = sound_dir / f"{first_word}.wav"
-            if wav.is_file():
-                files.append(f"{game}/sound/{prefix}/{first_word}.wav")
-
-        # Process remaining tokens
-        for token in tokens[1:]:
-            # Some tokens may have their own directory prefix
-            if "/" in token:
-                new_prefix, word = token.split("/", 1)
-                if word and not word.startswith("."):
-                    wav = Path(app.static_folder) / game / "sound" / new_prefix / f"{word}.wav"
-                    if wav.is_file():
-                        files.append(f"{game}/sound/{new_prefix}/{word}.wav")
-            else:
-                # Clean up: strip commas and periods used as pause markers
-                word = token.strip(".,")
-                if not word:
-                    continue
-                wav = sound_dir / f"{word}.wav"
-                if wav.is_file():
-                    files.append(f"{game}/sound/{prefix}/{word}.wav")
-
-        if files:
-            # Build a readable label from the sentence name
-            label = name.replace("_", " ")
-            results.append(
-                {"name": name, "label": label, "prefix": prefix, "files": files}
-            )
-
-    return results
-
 
 @app.route("/")
 def index():
@@ -526,13 +442,9 @@ def index():
     default_game = games[0] if games else "cstrike"
     categories = get_categories(default_game)
     default_cat = categories[0] if categories else ""
-    sentence_builder = None
     weapon_groups = None
     player_groups = None
-    if default_cat in VOICE_DIRS:
-        sounds = []
-        sentence_builder = {"game": default_game, "voice_dir": default_cat}
-    elif default_cat == "weapons":
+    if default_cat == "weapons":
         sounds = []
         weapon_groups = get_weapon_groups(default_game)
     elif default_cat == "footsteps":
@@ -549,7 +461,7 @@ def index():
         active_category=default_cat,
         sounds=sounds,
         sentences=None,
-        sentence_builder=sentence_builder,
+        sentence_builder=None,
         weapon_groups=weapon_groups,
         player_groups=player_groups,
     )
@@ -559,13 +471,7 @@ def index():
 def soundboard(game: str, category: str):
     base = dict(sounds=[], sentences=None, sentence_builder=None,
                 weapon_groups=None, player_groups=None)
-    if category.startswith("sentences:"):
-        prefix = category.split(":", 1)[1]
-        all_sentences = parse_sentences(game)
-        base["sentences"] = [s for s in all_sentences if s["prefix"] == prefix]
-    elif category in VOICE_DIRS:
-        base["sentence_builder"] = {"game": game, "voice_dir": category}
-    elif category == "weapons":
+    if category == "weapons":
         base["weapon_groups"] = get_weapon_groups(game)
     elif category == "footsteps":
         base["player_groups"] = get_player_groups(game)
@@ -574,33 +480,14 @@ def soundboard(game: str, category: str):
     return render_template("partials/soundboard.html", **base)
 
 
-@app.route("/words/<game>/<voice_dir>")
-def words(game: str, voice_dir: str):
-    if voice_dir not in VOICE_DIRS:
-        return jsonify([])
-    sound_dir = Path(app.static_folder) / game / "sound" / voice_dir
-    if not sound_dir.is_dir():
-        return jsonify([])
-    stems = sorted(
-        f.stem for f in sound_dir.iterdir()
-        if f.is_file() and f.suffix == ".wav"
-    )
-    return jsonify(stems)
-
 
 @app.route("/categories/<game>")
 def categories(game: str):
     cats = get_categories(game)
     default_cat = cats[0] if cats else ""
-    sentence_builder = None
     weapon_groups = None
     player_groups = None
-    if default_cat.startswith("sentences:"):
-        sounds = []
-    elif default_cat in VOICE_DIRS:
-        sounds = []
-        sentence_builder = {"game": game, "voice_dir": default_cat}
-    elif default_cat == "weapons":
+    if default_cat == "weapons":
         sounds = []
         weapon_groups = get_weapon_groups(game)
     elif default_cat == "footsteps":
@@ -615,7 +502,7 @@ def categories(game: str):
         active_category=default_cat,
         sounds=sounds,
         sentences=None,
-        sentence_builder=sentence_builder,
+        sentence_builder=None,
         weapon_groups=weapon_groups,
         player_groups=player_groups,
     )
