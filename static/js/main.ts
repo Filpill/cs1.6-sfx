@@ -2,6 +2,149 @@ const ctx = new AudioContext();
 const gainNode = ctx.createGain();
 gainNode.connect(ctx.destination);
 
+// ---- Sound Activity Chart State ----
+const soundEvents: number[] = [];
+let totalSoundsPlayed = 0;
+const sessionStart = Date.now();
+
+function recordSoundPlayed(): void {
+  totalSoundsPlayed++;
+  soundEvents.push(Date.now());
+  drawChart();
+  updateChartStats();
+}
+
+function updateChartStats(): void {
+  const totalEl = document.getElementById("chart-total");
+  const rateEl = document.getElementById("chart-rate");
+  if (totalEl) totalEl.textContent = String(totalSoundsPlayed);
+  if (rateEl) {
+    const elapsedMin = (Date.now() - sessionStart) / 60000;
+    const rate = elapsedMin > 0 ? totalSoundsPlayed / elapsedMin : 0;
+    rateEl.textContent = rate.toFixed(1);
+  }
+}
+
+function drawChart(): void {
+  const canvas = document.getElementById("activity-chart") as HTMLCanvasElement | null;
+  if (!canvas) return;
+  const container = canvas.parentElement!;
+  const dpr = window.devicePixelRatio || 1;
+
+  const rect = container.getBoundingClientRect();
+  canvas.width = rect.width * dpr;
+  canvas.height = rect.height * dpr;
+
+  const c = canvas.getContext("2d")!;
+  c.scale(dpr, dpr);
+
+  const W = rect.width;
+  const H = rect.height;
+
+  const pad = { top: 12, right: 12, bottom: 24, left: 32 };
+  const plotW = W - pad.left - pad.right;
+  const plotH = H - pad.top - pad.bottom;
+
+  // Clear
+  c.fillStyle = "#1e1e18";
+  c.fillRect(0, 0, W, H);
+
+  // Empty state
+  if (soundEvents.length === 0) {
+    c.fillStyle = "#706e62";
+    c.font = "11px Tahoma, Arial, sans-serif";
+    c.textAlign = "center";
+    c.textBaseline = "middle";
+    c.fillText("Play a sound to begin tracking", W / 2, H / 2);
+    return;
+  }
+
+  // Build cumulative data points: (elapsed seconds, cumulative count)
+  const now = Date.now();
+  const points: { t: number; v: number }[] = [];
+  points.push({ t: 0, v: 0 });
+  for (let i = 0; i < soundEvents.length; i++) {
+    const t = (soundEvents[i] - sessionStart) / 1000;
+    points.push({ t, v: i + 1 });
+  }
+  // Extend to current time
+  const totalElapsed = (now - sessionStart) / 1000;
+  points.push({ t: totalElapsed, v: totalSoundsPlayed });
+
+  const maxT = Math.max(totalElapsed, 10);
+  const rawMaxV = totalSoundsPlayed;
+  const maxV = Math.max(Math.ceil(rawMaxV / 5) * 5, 5);
+
+  // Grid lines
+  c.strokeStyle = "#2a2a20";
+  c.lineWidth = 1;
+
+  // Y axis grid + labels
+  const ySteps = 5;
+  c.fillStyle = "#706e62";
+  c.font = "10px Tahoma, Arial, sans-serif";
+  c.textAlign = "right";
+  c.textBaseline = "middle";
+  for (let i = 0; i <= ySteps; i++) {
+    const val = Math.round((maxV / ySteps) * i);
+    const y = pad.top + plotH - (i / ySteps) * plotH;
+    c.beginPath();
+    c.moveTo(pad.left, y);
+    c.lineTo(pad.left + plotW, y);
+    c.stroke();
+    c.fillText(String(val), pad.left - 4, y);
+  }
+
+  // X axis grid + labels
+  const xSteps = 4;
+  c.textAlign = "center";
+  c.textBaseline = "top";
+  for (let i = 0; i <= xSteps; i++) {
+    const val = (maxT / xSteps) * i;
+    const x = pad.left + (i / xSteps) * plotW;
+    c.beginPath();
+    c.moveTo(x, pad.top);
+    c.lineTo(x, pad.top + plotH);
+    c.stroke();
+    let label: string;
+    if (maxT >= 120) {
+      label = (val / 60).toFixed(1) + "m";
+    } else {
+      label = Math.round(val) + "s";
+    }
+    c.fillText(label, x, pad.top + plotH + 4);
+  }
+
+  // Plot line
+  function toX(t: number): number { return pad.left + (t / maxT) * plotW; }
+  function toY(v: number): number { return pad.top + plotH - (v / maxV) * plotH; }
+
+  // Fill under curve
+  c.beginPath();
+  c.moveTo(toX(points[0].t), toY(points[0].v));
+  for (let i = 1; i < points.length; i++) {
+    // Staircase: horizontal then vertical
+    c.lineTo(toX(points[i].t), toY(points[i - 1].v));
+    c.lineTo(toX(points[i].t), toY(points[i].v));
+  }
+  c.lineTo(toX(points[points.length - 1].t), toY(0));
+  c.lineTo(toX(points[0].t), toY(0));
+  c.closePath();
+  c.fillStyle = "rgba(106, 122, 62, 0.2)";
+  c.fill();
+
+  // Line stroke
+  c.beginPath();
+  c.moveTo(toX(points[0].t), toY(points[0].v));
+  for (let i = 1; i < points.length; i++) {
+    c.lineTo(toX(points[i].t), toY(points[i - 1].v));
+    c.lineTo(toX(points[i].t), toY(points[i].v));
+  }
+  c.strokeStyle = "#8a9a5e";
+  c.lineWidth = 1.5;
+  c.stroke();
+}
+
 const volumeSlider = document.getElementById("volume-slider") as HTMLInputElement | null;
 if (volumeSlider) {
   gainNode.gain.value = parseInt(volumeSlider.value, 10) / 100;
@@ -41,6 +184,7 @@ async function playSounds(files: string[]): Promise<void> {
       updateStopBtn();
     };
     when += buf.duration;
+    recordSoundPlayed();
   }
   updateStopBtn();
 }
@@ -189,6 +333,7 @@ function startFiring(
       if (idx !== -1) activeSources.splice(idx, 1);
       updateStopBtn();
     };
+    recordSoundPlayed();
 
     // Shell casing with slight delay at reduced volume
     if (playShell) {
@@ -293,3 +438,7 @@ function stopAll(): void {
 }
 
 stopAllBtn?.addEventListener("click", stopAll);
+
+// ---- Chart init ----
+drawChart();
+window.addEventListener("resize", () => drawChart());

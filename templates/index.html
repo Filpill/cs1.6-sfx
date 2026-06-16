@@ -290,6 +290,51 @@
             min-height: 400px;
         }
 
+        /* ---- chart panel ---- */
+        .chart-panel {
+            margin-bottom: 8px;
+        }
+
+        .chart-panel-header {
+            padding: 4px 8px;
+            background: #2e3a1a;
+            border: 1px solid #2a2a20;
+            border-bottom: none;
+            font-size: 11px;
+            font-weight: bold;
+            color: #c8b83c;
+            letter-spacing: 0.5px;
+            text-shadow: 1px 1px 1px rgba(0,0,0,0.6);
+        }
+
+        .chart-container {
+            background: #1e1e18;
+            border: 1px solid #2a2a20;
+            height: 150px;
+            position: relative;
+        }
+
+        .chart-container canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+
+        .chart-stats {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 8px;
+            background: #35342a;
+            border: 1px solid #2a2a20;
+            border-top: none;
+            font-size: 11px;
+            color: #a8a690;
+        }
+
+        .chart-stats span {
+            color: #c8b83c;
+        }
+
         /* ---- category nav ---- */
         .cat-nav {
             display: flex;
@@ -721,6 +766,16 @@
 
 
         <div class="content">
+            <div class="chart-panel">
+                <div class="chart-panel-header">Sound Activity</div>
+                <div class="chart-container">
+                    <canvas id="activity-chart"></canvas>
+                </div>
+                <div class="chart-stats">
+                    <span>Total: <span id="chart-total">0</span></span>
+                    <span>Rate: <span id="chart-rate">0.0</span>/min</span>
+                </div>
+            </div>
             <div id="game-content">
                 {% include 'partials/categories.html' %}
             </div>
